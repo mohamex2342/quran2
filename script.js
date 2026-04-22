@@ -3,72 +3,70 @@ import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist
 
 const ffmpeg = new FFmpeg();
 
-const mergeBtn = document.getElementById('mergeBtn');
-const downloadBtn = document.getElementById('downloadBtn');
-const progressBar = document.getElementById('progressBar');
-const progressPercent = document.getElementById('progressPercent');
-const progressArea = document.getElementById('progressArea');
-const statusText = document.getElementById('statusText');
+// دالة لجلب الفيديو من رابط وتجاوز حماية CORS
+async function getVideoFromUrl(url) {
+    if (!url) return null;
+    // نستخدم بروكسي عام لتجاوز قيود تيك توك والمتصفح
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+    const response = await fetch(proxyUrl);
+    const blob = await response.blob();
+    return new Uint8Array(await blob.arrayBuffer());
+}
 
-mergeBtn.addEventListener('click', async () => {
-    const videoFile = document.getElementById('videoInput').files[0];
-    const lyricsFile = document.getElementById('lyricsInput').files[0];
+document.getElementById('mergeBtn').addEventListener('click', async () => {
+    const vLink = document.getElementById('videoLink').value;
+    const vFile = document.getElementById('videoFile').files[0];
+    const lLink = document.getElementById('lyricsLink').value;
+    const lFile = document.getElementById('lyricsFile').files[0];
 
-    if (!videoFile || !lyricsFile) {
-        alert('يرجى اختيار الملفات المطلوبة أولاً');
-        return;
-    }
+    const status = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
 
     try {
-        mergeBtn.disabled = true;
-        progressArea.classList.remove('hidden');
-        downloadBtn.classList.add('hidden');
+        status.innerText = "جاري جلب الفيديوهات...";
+        document.getElementById('progressArea').style.display = 'block';
+
+        // تحديد مصدر الفيديو (رابط أو ملف)
+        const videoData = vFile ? await fetchFile(vFile) : await getVideoFromUrl(vLink);
+        const lyricsData = lFile ? await fetchFile(lFile) : await getVideoFromUrl(lLink);
+
+        if (!videoData || !lyricsData) throw new Error("يرجى توفير الفيديوهات");
 
         if (!ffmpeg.loaded) {
-            statusText.innerText = "جاري تحميل المحرك...";
-            // تأكد أن المجلد اسمه ffmpeg ويحتوي على الملفات الثلاثة
-            const baseURL = window.location.origin + '/ffmpeg';
-            
+            status.innerText = "تحميل محرك المعالجة...";
+            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
             await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/core.js`, 'text/javascript'),
                 wasmURL: await toBlobURL(`${baseURL}/core.wasm`, 'application/wasm'),
-                // سحب الـ Worker محلياً يحل مشكلة SecurityError
-                workerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
+                workerURL: await toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/esm/worker.js`, 'text/javascript')
             });
         }
 
         ffmpeg.on('progress', ({ progress }) => {
-            const p = Math.round(progress * 100);
-            progressBar.style.width = `${p}%`;
-            progressPercent.innerText = `${p}%`;
-            statusText.innerText = "جاري المعالجة... قد تستغرق دقيقة";
+            progressBar.style.width = `${progress * 100}%`;
         });
 
-        await ffmpeg.writeFile('bg.mp4', await fetchFile(videoFile));
-        await ffmpeg.writeFile('lyrics.mp4', await fetchFile(lyricsFile));
+        await ffmpeg.writeFile('input1.mp4', videoData);
+        await ffmpeg.writeFile('input2.mp4', lyricsData);
 
-        // الأمر الاحترافي للدمج (Screen Mode)
+        // الدمج بنمط Screen لإزالة الخلفية السوداء
         await ffmpeg.exec([
-            '-i', 'bg.mp4',
-            '-i', 'lyrics.mp4',
-            '-filter_complex', '[1:v]format=rgba,colorlevels=rimin=0.05:gimin=0.05:bimin=0.05[l];[0:v][l]blend=all_mode=\'screen\':all_opacity=1',
-            '-c:a', 'copy',
-            'out.mp4'
+            '-i', 'input1.mp4', '-i', 'input2.mp4',
+            '-filter_complex', '[1:v]format=rgba,colorlevels=rimin=0.05:gimin=0.05:bimin=0.05[l];[0:v][l]blend=all_mode=\'screen\'',
+            '-c:a', 'copy', 'output.mp4'
         ]);
 
-        const data = await ffmpeg.readFile('out.mp4');
+        const data = await ffmpeg.readFile('output.mp4');
         const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-
-        downloadBtn.href = url;
-        downloadBtn.download = 'merged_video.mp4';
-        downloadBtn.classList.remove('hidden');
-        statusText.innerText = "تم الدمج بنجاح!";
         
-    } catch (err) {
-        console.error("Error Detail:", err);
-        statusText.innerText = "حدث خطأ في النظام!";
-        alert("فشل الدمج. تأكد من أن ملف الـ Worker موجود في مجلد ffmpeg.");
-    } finally {
-        mergeBtn.disabled = false;
+        const dl = document.getElementById('downloadBtn');
+        dl.href = url;
+        dl.download = "tiktok_merged.mp4";
+        dl.style.display = "block";
+        status.innerText = "تم الدمج بنجاح!";
+
+    } catch (e) {
+        console.error(e);
+        status.innerText = "حدث خطأ: تأكد من صحة الروابط أو جرب رفع الملفات يدوياً";
     }
 });
