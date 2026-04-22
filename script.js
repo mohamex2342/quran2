@@ -45,8 +45,8 @@ document.getElementById('mergeBtn').addEventListener('click', async () => {
             const baseURL = window.location.origin + '/ffmpeg';
             
             await ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                coreURL: await toBlobURL(`${baseURL}/core.js`, 'text/javascript'),
+                wasmURL: await toBlobURL(`${baseURL}/core.wasm`, 'application/wasm'),
                 workerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
             });
         }
