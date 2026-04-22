@@ -3,10 +3,9 @@ import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist
 
 const ffmpeg = new FFmpeg();
 
-// دالة لجلب الفيديو من رابط وتجاوز حماية CORS
+// دالة لجلب الفيديو من رابط عبر بروكسي لتجاوز CORS
 async function getVideoFromUrl(url) {
     if (!url) return null;
-    // نستخدم بروكسي عام لتجاوز قيود تيك توك والمتصفح
     const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
     const response = await fetch(proxyUrl);
     const blob = await response.blob();
@@ -21,29 +20,41 @@ document.getElementById('mergeBtn').addEventListener('click', async () => {
 
     const status = document.getElementById('statusText');
     const progressBar = document.getElementById('progressBar');
+    const mergeBtn = document.getElementById('mergeBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
 
     try {
-        status.innerText = "جاري جلب الفيديوهات...";
+        if ((!vLink && !vFile) || (!lLink && !lFile)) {
+            alert('يرجى اختيار الفيديوهات أولاً يا محمد');
+            return;
+        }
+
+        mergeBtn.disabled = true;
+        downloadBtn.style.display = 'none';
         document.getElementById('progressArea').style.display = 'block';
+        status.innerText = "جاري جلب الفيديوهات من المصدر...";
 
         // تحديد مصدر الفيديو (رابط أو ملف)
         const videoData = vFile ? await fetchFile(vFile) : await getVideoFromUrl(vLink);
         const lyricsData = lFile ? await fetchFile(lFile) : await getVideoFromUrl(lLink);
 
-        if (!videoData || !lyricsData) throw new Error("يرجى توفير الفيديوهات");
+        if (!videoData || !lyricsData) throw new Error("فشل جلب ملفات الفيديو");
 
         if (!ffmpeg.loaded) {
-            status.innerText = "تحميل محرك المعالجة...";
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+            status.innerText = "تحميل محرك المعالجة المحلي...";
+            const baseURL = window.location.origin + '/ffmpeg';
+            
             await ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/core.wasm`, 'application/wasm'),
-                workerURL: await toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/esm/worker.js`, 'text/javascript')
+                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                workerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
             });
         }
 
         ffmpeg.on('progress', ({ progress }) => {
-            progressBar.style.width = `${progress * 100}%`;
+            const p = Math.round(progress * 100);
+            progressBar.style.width = `${p}%`;
+            status.innerText = `جاري الدمج... اترك الصفحة مفتوحة (${p}%)`;
         });
 
         await ffmpeg.writeFile('input1.mp4', videoData);
@@ -59,14 +70,16 @@ document.getElementById('mergeBtn').addEventListener('click', async () => {
         const data = await ffmpeg.readFile('output.mp4');
         const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
         
-        const dl = document.getElementById('downloadBtn');
-        dl.href = url;
-        dl.download = "tiktok_merged.mp4";
-        dl.style.display = "block";
+        downloadBtn.href = url;
+        downloadBtn.download = "tiktok_merged.mp4";
+        downloadBtn.style.display = "block";
         status.innerText = "تم الدمج بنجاح!";
 
     } catch (e) {
         console.error(e);
         status.innerText = "حدث خطأ: تأكد من صحة الروابط أو جرب رفع الملفات يدوياً";
+        alert("فشل الدمج. يفضل استخدام متصفح كروم وتجربة ملفات أقصر.");
+    } finally {
+        mergeBtn.disabled = false;
     }
 });
