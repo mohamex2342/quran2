@@ -15,7 +15,7 @@ mergeBtn.addEventListener('click', async () => {
     const lyricsFile = document.getElementById('lyricsInput').files[0];
 
     if (!videoFile || !lyricsFile) {
-        alert('من فضلك اختر الفيديوهات أولاً يا محمد');
+        alert('يرجى اختيار الملفات المطلوبة أولاً');
         return;
     }
 
@@ -24,15 +24,16 @@ mergeBtn.addEventListener('click', async () => {
         progressArea.classList.remove('hidden');
         downloadBtn.classList.add('hidden');
 
-        // تحميل المكتبة من الملفات المحلية
         if (!ffmpeg.loaded) {
-            statusText.innerText = "تحميل المحرك...";
-            const baseURL = window.location.origin + '/ffmpeg'; 
+            statusText.innerText = "جاري تحميل المحرك...";
+            // تأكد أن المجلد اسمه ffmpeg ويحتوي على الملفات الثلاثة
+            const baseURL = window.location.origin + '/ffmpeg';
             
             await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                 wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
+                // سحب الـ Worker محلياً يحل مشكلة SecurityError
+                workerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
             });
         }
 
@@ -40,35 +41,33 @@ mergeBtn.addEventListener('click', async () => {
             const p = Math.round(progress * 100);
             progressBar.style.width = `${p}%`;
             progressPercent.innerText = `${p}%`;
-            statusText.innerText = "جاري دمج الفيديوهات...";
+            statusText.innerText = "جاري المعالجة... قد تستغرق دقيقة";
         });
 
-        // كتابة الملفات في الذاكرة
-        await ffmpeg.writeFile('main.mp4', await fetchFile(videoFile));
-        await ffmpeg.writeFile('text.mp4', await fetchFile(lyricsFile));
+        await ffmpeg.writeFile('bg.mp4', await fetchFile(videoFile));
+        await ffmpeg.writeFile('lyrics.mp4', await fetchFile(lyricsFile));
 
-        // تنفيذ أمر الدمج الاحترافي
-        // filter_complex: تفتيح النص وإزالة السواد (Screen Blend)
+        // الأمر الاحترافي للدمج (Screen Mode)
         await ffmpeg.exec([
-            '-i', 'main.mp4',
-            '-i', 'text.mp4',
+            '-i', 'bg.mp4',
+            '-i', 'lyrics.mp4',
             '-filter_complex', '[1:v]format=rgba,colorlevels=rimin=0.05:gimin=0.05:bimin=0.05[l];[0:v][l]blend=all_mode=\'screen\':all_opacity=1',
             '-c:a', 'copy',
-            'output.mp4'
+            'out.mp4'
         ]);
 
-        // قراءة النتيجة
-        const data = await ffmpeg.readFile('output.mp4');
+        const data = await ffmpeg.readFile('out.mp4');
         const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
 
         downloadBtn.href = url;
-        downloadBtn.download = 'Merged_Video_By_Mohamed.mp4';
+        downloadBtn.download = 'merged_video.mp4';
         downloadBtn.classList.remove('hidden');
-        statusText.innerText = "اكتمل الدمج بنجاح!";
+        statusText.innerText = "تم الدمج بنجاح!";
         
-    } catch (error) {
-        console.error(error);
-        alert('حدث خطأ أثناء المعالجة، تأكد من إعدادات COEP/COOP');
+    } catch (err) {
+        console.error("Error Detail:", err);
+        statusText.innerText = "حدث خطأ في النظام!";
+        alert("فشل الدمج. تأكد من أن ملف الـ Worker موجود في مجلد ffmpeg.");
     } finally {
         mergeBtn.disabled = false;
     }
