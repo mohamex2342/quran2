@@ -10,6 +10,7 @@ body {
     min-height: 100vh;
 }
 
+/* حاوية الجلاس مورفيزم */
 .glass-container {
     background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(20px);
@@ -20,7 +21,7 @@ body {
     width: 100%;
     max-width: 600px;
     text-align: center;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 40px rgba(6, 182, 212, 0.1);
 }
 
 h1 {
@@ -30,6 +31,8 @@ h1 {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
+
+h1 + p { color: #94a3b8; margin-top: 0; margin-bottom: 2rem; }
 
 .input-group {
     margin-bottom: 2rem;
@@ -64,7 +67,6 @@ label {
     background: rgba(0, 0, 0, 0.6);
 }
 
-/* فاصل "أو" */
 .divider {
     font-size: 0.8rem;
     color: #475569;
@@ -73,12 +75,31 @@ label {
     text-align: center;
 }
 
+/* تنسيق حقل الملف المحلي */
 .file-input {
     width: 100%;
     font-size: 0.8rem;
     color: #64748b;
 }
 
+/* تنسيق أزرار الملف المخصصة - هام لتجنب التداخل */
+.file-input::file-selector-button {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-left: 10px; /* المسافة من النص العربي */
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.file-input::file-selector-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* أزرار الإجراءات السفلية - مفصلة بمسافة */
 .btn-primary {
     width: 100%;
     padding: 1.2rem;
@@ -90,15 +111,21 @@ label {
     font-size: 1.1rem;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.3s;
-    margin-top: 1rem;
+    margin-top: 1.5rem; /* مسافة رأسية بين الأزرار */
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     transform: translateY(-3px);
     box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
 }
 
-.btn-primary:active { transform: translateY(0); }
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #1e293b;
+}
 
 #progressArea {
     margin-top: 25px;
@@ -110,6 +137,7 @@ label {
     height: 8px;
     border-radius: 4px;
     overflow: hidden;
+    margin-top: 10px;
 }
 
 #progressBar {
@@ -121,8 +149,8 @@ label {
 }
 
 .btn-download {
-    display: inline-block;
-    margin-top: 20px;
+    display: block; /* لجعلها تأخذ السطر بالكامل كزر */
+    margin-top: 20px; /* مسافة عن زر الدمج */
     padding: 1rem 2.5rem;
     background: #10b981;
     color: white;
@@ -130,6 +158,8 @@ label {
     border-radius: 12px;
     font-weight: bold;
     animation: pulse 2s infinite;
+    cursor: pointer;
+    text-align: center;
 }
 
 @keyframes pulse {
